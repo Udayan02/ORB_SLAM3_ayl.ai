@@ -2115,6 +2115,23 @@ void Tracking::Track()
         vdPosePred_ms.push_back(timePosePred);
 #endif
 
+/*
+    BEGIN: Udayan's code to save all raw keypoints
+*/
+
+{
+    // Access all keypoints and descriptors
+    const std::vector<cv::KeyPoint>& allKeypoints = mCurrentFrame.mvKeys;
+    const cv::Mat& allDescriptors = mCurrentFrame.mDescriptors;
+    
+    // Save or process all keypoints
+    SaveAllKeypoints(allKeypoints, allDescriptors, mCurrentFrame.mTimeStamp);
+}
+
+/*
+    END: Udayan's code to save all raw keypoints
+*/
+
 
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartLMTrack = std::chrono::steady_clock::now();
@@ -2162,6 +2179,42 @@ void Tracking::Track()
                 mTimeStampLost = mCurrentFrame.mTimeStamp;
             //}
         }
+
+        /*
+            BEGIN: Udayan's code to save tracked keypoints
+        */
+
+        if(bOK || mState == RECENTLY_LOST)
+        {
+            // Access keypoints and their 3D positions
+            std::vector<cv::KeyPoint> trackedKeypoints;
+            std::vector<cv::Point3f> keypoint3DPositions;
+            std::vector<bool> isMapPoint;
+            
+            for(int i=0; i<mCurrentFrame.N; i++)
+            {
+                trackedKeypoints.push_back(mCurrentFrame.mvKeys[i]);
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+                if(pMP && !mCurrentFrame.mvbOutlier[i])
+                {
+                    Eigen::Vector3f wp = pMP->GetWorldPos();
+                    keypoint3DPositions.push_back(cv::Point3f(wp(0), wp(1), wp(2)));
+                    isMapPoint.push_back(true);
+                }
+                else
+                {
+                    keypoint3DPositions.push_back(cv::Point3f(0,0,0));
+                    isMapPoint.push_back(false);
+                }
+            }
+            
+            // Do something with these points
+            SaveTrackedKeypoints(trackedKeypoints, keypoint3DPositions, isMapPoint, mCurrentFrame.mTimeStamp);
+        }
+
+        /*
+            END: Udayan's code to save tracked keypoints
+        */
 
         // Save frame if recent relocalization, since they are used for IMU reset (as we are making copy, it shluld be once mCurrFrame is completely modified)
         if((mCurrentFrame.mnId<(mnLastRelocFrameId+mnFramesToResetIMU)) && (mCurrentFrame.mnId > mnFramesToResetIMU) &&
@@ -2329,6 +2382,62 @@ void Tracking::Track()
         }
     }
 #endif
+}
+
+void Tracking::SaveAllKeypoints(const std::vector<cv::KeyPoint>& keypoints, 
+    const cv::Mat& descriptors, 
+    double timestamp)
+{
+    // Implementation based on what you need
+    // Example: Save to file, database, or send to another process
+    std::ofstream file;
+    std::string filename = "./raw_keypoints/keypoints_raw_" + std::to_string(timestamp) + ".txt";
+    file.open(filename);
+
+    for(size_t i=0; i<keypoints.size(); i++)
+    {
+        file << keypoints[i].pt.x << " " 
+        << keypoints[i].pt.y << " "
+        << keypoints[i].size << " "
+        << keypoints[i].angle;
+
+        // Optionally save descriptor values
+        if(!descriptors.empty())
+        {
+            file << " ";
+            for(int j=0; j<descriptors.row(i).cols; j++)
+            file << descriptors.at<float>(i,j) << " ";
+        }
+
+        file << std::endl;
+    }
+
+    file.close();
+}
+
+void Tracking::SaveTrackedKeypoints(const std::vector<cv::KeyPoint>& keypoints,
+        const std::vector<cv::Point3f>& positions,
+        const std::vector<bool>& isMapPoint, 
+        double timestamp)
+{
+    // Save tracked keypoints with their 3D positions
+    std::ofstream file;
+    std::string filename = "./tracked_keypoints/keypoints_tracked_" + std::to_string(timestamp) + ".txt";
+    file.open(filename);
+
+    for(size_t i=0; i<keypoints.size(); i++)
+    {
+        if(isMapPoint[i])
+        {
+            file << keypoints[i].pt.x << " " 
+            << keypoints[i].pt.y << " "
+            << positions[i].x << " "
+            << positions[i].y << " "
+            << positions[i].z << std::endl;
+        }
+    }
+
+    file.close();
 }
 
 
