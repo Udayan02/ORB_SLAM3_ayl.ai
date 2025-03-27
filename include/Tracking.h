@@ -229,6 +229,23 @@ protected:
     // Reset IMU biases and compute frame velocity
     void ResetFrameIMU();
 
+    /*
+        BEGIN: Udayan's code for declaring the helper functions
+    */
+
+    void SaveAllKeypoints(const std::vector<cv::KeyPoint>& keypoints, 
+        const cv::Mat& descriptors, 
+        double timestamp);
+        
+    void SaveTrackedKeypoints(const std::vector<cv::KeyPoint>& keypoints,
+            const std::vector<cv::Point3f>& positions,
+            const std::vector<bool>& isMapPoint, 
+            double timestamp);
+    
+    /*
+        END: Udayan's code for declaring the helper functions
+    */
+    
     bool mbMapUpdated;
 
     // Imu preintegration from last frame
